@@ -1,0 +1,16 @@
+Morpho-syntactic tagger for Polish based on the Conditional Random Fields.
+
+
+ABOUT
+
+Written in Haskell morpho-syntactic tagger for Polish based on the Conditional Random Fields.
+For now, it lacks morphological analysis phase and provides only disambiguation functionality.
+It can be used together with Morfeusz SGJP morphological analyser, http://sgjp.pl/morfeusz/.
+The tager has been developed with Morfeusz morphological tagset in mind, but it can be used
+with other, similar tagsets or analysers.
+
+
+COMPILATION
+
+
+DOCUMENTATION
