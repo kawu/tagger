@@ -12,5 +12,21 @@ with other, similar tagsets or analysers.
 
 COMPILATION
 
+Use the following command to compile tager from within the root directory:
+
+$ ghc --make -isrc -o tager -outputdir tmp Main
+
+Intermediate files will be put into 'tmp' directory.
+
+
+USAGE
+
+Run the compiled program with a '--help' argument to see a list of
+program command line options.
+
+$ ./tager --help
+
+You can find more information about usage in the documentation 'docs' directory.
+
 
 DOCUMENTATION

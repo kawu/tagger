@@ -34,10 +34,6 @@ import qualified Text.Data as L
 import qualified Text.Linc.Parser as L
 import qualified Text.Linc.Printer as L
 
-import qualified Text.Morphos.Data as M
-import qualified Text.Morphos.Parser as M
-import qualified Text.Morphos.Printer as M
-
 import qualified Text.Tagset.Data as TS
 import qualified Text.Tagset.DefParser as TS
 
@@ -66,7 +62,6 @@ data Args =
     TagMode
         { dataFilePath :: Maybe FilePath
         , inModel :: FilePath
-        , morphosFormat :: Bool
         , printProbs :: Bool }
     |
     CVMode 
@@ -112,10 +107,8 @@ tagMode = TagMode
     { inModel = def &= argPos 0 &= typ "MODEL"
     , dataFilePath = Nothing
         &= help "Input file; if not specified, read from stdin"
-    , morphosFormat = False &= help "Input/output in Morphos format"
     , printProbs = False
-        &= help (  "Print probabilities of labeles (the other option, "
-                ++ "disambiguation, avilable only with the LINC format)" ) }
+        &= help "Print probabilities of labeles instead of performing disambiguation" }
 
 argModes :: Mode (CmdArgs Args)
 argModes = cmdArgsMode $ modes [trainMode, cvMode, tagMode]
@@ -147,9 +140,7 @@ exec args@TagMode{..} = do
     -- putStr $ "Loading model from " ++ inModel ++ "..."
     model <- return $ decodeFile inModel
     --putStr "\n"
-    if morphosFormat
-        then tagMorphos args model
-        else tagLinc args model
+    tagLinc args model
 
 doTrain mkDataSet args@TrainMode{..} = do
     hSetBuffering stdout NoBuffering
@@ -193,24 +184,6 @@ tagLinc args@TagMode{..} model = do
           `using` parBuffer 50 (evalList L.evalLincWord) )
 
     mapM_ (L.printSent tagset printProbs) tagged
-
-tagMorphos args@TagMode{..} model = do
-    (crf, alphabet, tagset, schema) <- model
-
-    morph <- return . M.parseMorph stderr =<<
-        case dataFilePath of
-            Nothing -> LT.getContents
-            Just path -> LT.readFile path
-
-    -- it would be nice to parallelize this too
-    linc <- forM' morph $ M.toLinc stderr tagset
-
-    tagged <- return
-        ( [ M.merge msent (tagSent schema crf alphabet lsent) refs
-          | (msent, (lsent, refs)) <- zip morph linc ]
-          `using` parBuffer 50 M.evalMorphSent )
-
-    mapM_ M.printSent tagged
 
 tagSent :: [S.LayerCompiled] -> C.Model -> C.Alphabet
             -> [L.LincWord] -> [L.LincWord]
