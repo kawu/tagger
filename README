@@ -3,7 +3,7 @@ Morpho-syntactic tagger for Polish based on the Conditional Random Fields.
 
 ABOUT
 
-Written in Haskell morpho-syntactic tagger for Polish based on the Conditional Random Fields. For now, it lacks morphological analysis phase and provides only disambiguation functionality. It can be used together with Morfeusz SGJP morphological analyser, http://sgjp.pl/morfeusz/. The tager has been developed with Morfeusz morphological tagset in mind, but it can be used with other, similar tagsets or analysers.
+Written in Haskell morpho-syntactic tagger for Polish based on the Conditional Random Fields.  For now, it lacks morphological analysis phase and provides only disambiguation functionality.  It can be used together with Morfeusz SGJP morphological analyser, http://sgjp.pl/morfeusz/.  The tager has been developed with Morfeusz morphological tagset in mind, but it can be used with other, similar tagsets or analysers.
 
 
 COMPILATION
@@ -24,10 +24,23 @@ $ ./tager --help
 You can find more information about usage in the documentation 'docs' directory.
 
 
+CONFIGURATION
+
+Configuration consists of two files:
+* Tagset configuration,
+* Observations schema.
+Examplary configuration -- simple schema and tagset configuration consistent with NKJP -- can be found in the 'config' directory.
+
+
 DOCUMENTATION
 
-Manual and algorithm description can be found in the 'docs' directory. It is written in polish. In can be compiled using the following command:
+Manual and algorithm description can be found in the 'docs/manual.pdf' file.  It is written in polish.  In can be compiled using the following command:
 
 $ pdflatex manual.tex
 
 from within the 'docs' directory.
+
+
+UTILITIES
+
+Utility tools can be found in the 'utils' directory.  In the 'utils/tei2linc' directory there is a program for conversion from TEI format to the LINC format, which is a default tager format.

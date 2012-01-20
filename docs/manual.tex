@@ -173,12 +173,8 @@ w rozdziale \ref{sec:schema_def}.
 
 Po wczytaniu całego modelu rozpoczyna się proces ujednoznaczniania.
 Wczytywany jest -- ze standardowego wejścia lub z podanego jako argument
-pliku -- dokument w formacie Morphosa (możliwe jest również
-ujednoznacznianie pliku wejściowego w wewnętrznym formacie narzędzia
-o nazwie LINC -- opis tego formatu można znaleźć w rozdziale
-\ref{sec:linc_format}).
-Przez format Morphosa rozumiemy tutaj format wyjściowy analizatora Morphos
-przeznaczony do dalszego ujednoznaczniania.
+pliku -- dokument w wewnętrznym formacie LINC, którego opis można znaleźć
+w rozdziale \ref{sec:linc_format}.
 Dokument wejściowy jest dzielony na zdania, zgodnie z identyfikatorami zdań,
 a następnie każde ze zdań poddawane jest niezależnie procesowi
 ujednoznaczniania.
@@ -186,7 +182,7 @@ ujednoznaczniania.
 Każde ze zdań należących do zbioru wejściowego przetwarzane jest w następujący sposób:
 \begin{itemize}
 \item Dla każdego słowa określany jest zbiór potencjalnych znaczników.
-  W wejściowym pliku w formacie Morphosa dla każdego słowa podane są
+  W wejściowym pliku dla każdego słowa podane są
   wszystkie jego interpretacje morfoskładniowe. Jak już wcześniej
   wspomnieliśmy, wśród tych interpretacji niektóre znaczniki mogą
   się powtarzać, dlatego otrzymany zbiór znaczników może być mniejszy
@@ -1085,10 +1081,8 @@ Różnice pomiędzy tagsetami mogą występować na dwóch poziomach:
 \item Zakresu informacji, które są reprezentowane na poziomie znaczników.
 \end{itemize}
 
-Obecnie tager wspiera dwa sposoby zapisu znaczników -- format NKJP oraz
-format Morphosa. W formacie NKJP poszczególne pola znaczników oddzielone
-są separatorem ':'. W formacie Morphosa nie ma separatorów, ale za to
-brak wartości opcjonalnej kategorii oznaczany jest specjalnych znakiem '\_'.
+Obecnie tager metodę zapisu znaczników zgodną z analizatorem morfologicznym
+Morfeusz, gdzie poszczególne pola znaczników oddzielone są separatorem ':'.
 
 Oprócz formatu zapisu znaczników, w definicji tagsetu należy określić:
 \begin{itemize}
@@ -1100,13 +1094,14 @@ w podziale na wartości atrybutu cześci mowy).
 \end{itemize}
 
 Prześledzimy teraz przykładową definicję tagsetu przygotowaną
-dla formatu Morphosa. Na początek należy określić format znaczników:
+dla formatu znaczników zgodnego z Morfeuszem.
+Na początek należy określić format znaczników:
 \begin{verbatim}
 # Format of labels 
-view    = Morphos
+view    = NKJP
 \end{verbatim}
-Obecnie jedynie dwie wartości są dopuszczalne, \verb|Morphos| dla znaczników
-w formacie Morphosa oraz \verb|NKJP| dla znaczników w formacie NKJP.
+Obecnie jedyną dopuszczalną wartością jest \verb|NKJP| (tryb zgodności
+z Morfeuszem).
 
 Następnie należy wypełnić dwie sekcje definicji. Pierwsza z nich to sekcja
 atrybutów. W ramach sekcji atrybutów należy podać definicje
@@ -1117,15 +1112,12 @@ gramatycznych i atrybutów specjalnych branych pod uwagę:
 [ATTR]
 
 # Part of speech
-pos = v n abr adj proa proadv adv pronum # ...
-
-# Verb form
-vfm	= A B C D E F G H I K L M N
+pos = adja adjp adjc conj comp interp # ...
 
 # Grammatical categories
-nmb     = s p			# number
-cas     = N G D A I L V		# case
-gnd     = o z r f n p1 p2	# gender
+nmb     = sg pl
+cas     = nom gen dat acc inst loc voc
+gnd     = m1 m2 m3 f n
 # ...
 \end{verbatim}
 
@@ -1133,34 +1125,24 @@ W kolejnej sekcji podaje się reguły parsowania znaczników.
 Sekcja ta dzieli się na podsekcje. Każda z nich rozpoczyna
 się od linii zawierającej informacje, które atrybuty wiodące
 mają determinować sposób parsowania pozostałych atrybutów.
-Przykładowo, gdy parsowanie ma odbywać się zależnie
-od wartości części mowy, defnicja podsekcji może wyglądać tak:
+Przykładowo, gdy parsowanie ma odbywać się zależnie wyłącznie
+od wartości części mowy, tak jak to jest w przypadku znaczników
+zgodnych z NKJP, defnicja podsekcji może wyglądać tak:
 \begin{verbatim}
 {pos}
-n	= cas nmb gnd
-proa	= cas nmb gnd
-num	= cas nmb gnd
-adj	= [cas] [nmb] [gnd] [deg]
-prep	=
+# ...
+pcon    = asp
+qub     = [vlc]
+prep    = cas [vlc]
+siebie  = cas
+subst   = nmb cas gnd
+depr    = nmb cas gnd
 # ...
 \end{verbatim}
 Po lewej stronie znaku równości podana jest wartość atrybutu \verb|pos|,
 natomiast po prawej -- lista atrybotów (być może pusta), których wartości
 powinny pojawiać się w ramach znacznika, zgodnie z podaną kolejnością.
 Jeśli atrybut jest opcjonalny, powinien zostać podany w nawiasach kwadratowych.
-
-Kolejny przykład pokazuje definicję podsekcji, w której parsowanie
-atrybutów zależy od wartości części mowy i formy czasownika.
-Taki sposób definiowania reguł wymaga, żeby wartości podane po
-lewej stronie znaku równości pojawiały się w polach
-parsowanego znacznika jako pierwsze.
-\begin{verbatim}
-{pos vfm}
-v A	= per nmb tns mod asp
-v G	= cas nmb gnd asp
-v I	= asp
-# ...
-\end{verbatim}
 
 \subsection{Schemat oznaczania}\label{sec:schema_def}
 
@@ -1325,47 +1307,23 @@ plików wejściowych.
 
 \subsection{Tagowanie}
 
-Opisywane poniżej komendy działają pod systemem Linuks. Pod
-Windows tager należy uruchamiać w ten sam sposób, ale
-pomocnicze narzędzia (cat, iconv) są zainstalowane
-domyślnie tylko pod systemem Linuks.
 Tagowanie plików wyjściowych analizy morfoskładniowej w formacie
-Morphosa można uruchomić komendą:
+wewnętrznym LINC, opisanym w rozdziale \ref{sec:linc_format},
+uruchamia się komendą:
 \begin{verbatim}
-cat input.txt | ./tager tag model -m
+cat input.txt | ./tager tag model
 \end{verbatim}
 Gdzie \verb|input.txt| to plik wejściowy (wynik analizy),
 a \verb|model| to plik z wytrenowanym modelem.
-Opcja \verb|-m| podaje tagerowi informację, że plik wejściowy
-jest w formacie Morphosa. Tagowanie można również uruchomić
-na zadanym opcją \verb|-d| pliku:
+Tagowanie można również uruchomić na zadanym opcją \verb|-d| pliku:
 \begin{verbatim}
-./tager tag model -m -d input.txt
+./tager tag model -d input.txt
 \end{verbatim}
-Powyżej zakładamy, że plik wejściowy kodowany jest w UTF-8.
-Jeśli jest inaczej -- przykładowo, plik wejściowy kodowany jest
-w ISO\_8859-2 -- można użyć programu iconv do zmiany kodowania:
-\begin{verbatim}
-iconv -f ISO_8859-2 -t UTF-8 input.txt | ./tager tag model -m
-\end{verbatim}
+Przy czym zakładamy, że plik wejściowy kodowany jest w UTF-8.
 Wynik tagowania wypisywany jest na standardowe wyjście, błędy
-natomiast na stderr; wyjścia można przekierować aby zapisać
-wyniki do plików, np:
-\begin{verbatim}
-... | ./tager tag -m model > output.txt 2> errors.txt
-\end{verbatim}
+natomiast na stderr.
 
-Można również tagować pliki wejściowe w wewnętrznym formacie LINC.
-Format ten jest opisany w rozdziale \ref{sec:linc_format}.
-Komendy są w takim przypadku analogiczne jak powyżej, należy
-jedynie pominąć flagę \verb|-m| w argumentach programu, np.:
-\begin{verbatim}
-./tager tag model -d input.linc
-\end{verbatim}
-Dla formatu LINC tager domyślnie działa w trybie ujednoznaczniania,
-natomiast dla formatu Morphosa przyporządkowuje poszczególnym
-interpretacjom prawdopodobieństwa.
-
+% Tager domyślnie działa w trybie ujednoznaczniania.
 Ogólny opis wszystkich argumentów programu w trybie tagowania
 można uzyskać uruchamiająć narzędzie następującą komendą:
 \begin{verbatim}
@@ -1450,10 +1408,6 @@ następującą komendą:
 \section{Format LINC}\label{sec:linc_format}
 
 Format LINC stanowi wewnętrzny, domyślny format na którym pracuje tager.
-Narzędzie w trybie tagowania można również uruchomić na pliku wejściowym
-w formacie Morphosa, ale w trybie trenowania i walidacji krzyżowej już
-tylko na zbiorach danych w formacie LINC.
-
 Plik w formacie LINC składa się z listy opisów zdań, a opis zdania --
 z listy opisów słów. Opis zdania rozpoczyna się od słowa kluczowego
 \verb|Sent|, po którym następuję lista opisów słów.
