@@ -1,14 +1,17 @@
-Morpho-syntactic tagger for Polish based on the Conditional Random Fields.
+Morpho-syntactic tagger for Polish based on Conditional Random Fields.
+
+The tool is still in its developmnet stage.  I'm happy to receive any comments or advices on how to improve it.
 
 
 ABOUT
 
-Written in Haskell morpho-syntactic tagger for Polish based on the Conditional Random Fields.  For now, it lacks morphological analysis phase and provides only disambiguation functionality.  It can be used together with Morfeusz SGJP morphological analyser, http://sgjp.pl/morfeusz/.  The tager has been developed with Morfeusz morphological tagset in mind, but it can be used with other, similar tagsets or analysers.
+Morpho-syntactic tagger for Polish based on Conditional Random Fields.  For now, it lacks morphological analysis phase and provides only disambiguation functionality. 
+The tager has been developed with Morfeusz tagset in mind (see http://sgjp.pl/morfeusz/), but it can be used with other, similar tagsets.
 
 
 COMPILATION
 
-Use the following command to compile tager from within the root directory:
+To compile the program, the Glasgow Haskell Compiler (GHC) is required.  The easiest way to get the compiler is to download the latest stable release of Haskell Platform (http://hackage.haskell.org/platform/).  Any other haskell library, which is not distributed with Haskell Platform and is needed to compile the tager, can be downloaded using the cabal tool (which is bundled with the Platform).  Use the following command to compile 'tager' program from within the root directory:
 
 $ ghc --make -isrc -o tager -outputdir tmp Main
 
@@ -29,7 +32,7 @@ CONFIGURATION
 Configuration consists of two files:
 * Tagset configuration,
 * Observations schema.
-Examplary configuration -- simple schema and tagset configuration consistent with NKJP -- can be found in the 'config' directory.
+Examplary configuration -- simple schema and tagset configuration consistent with NKJP -- can be found in the 'config' directory.  More about configuration can be found in the manual.
 
 
 DOCUMENTATION
@@ -43,4 +46,12 @@ from within the 'docs' directory.
 
 UTILITIES
 
-Utility tools can be found in the 'utils' directory.  In the 'utils/tei2linc' directory there is a program for conversion from TEI format to the LINC format, which is a default tager format.
+Utility tools can be found in the 'utils' directory.  The 'utils/tei2linc/tei2linc.py' script can be used to convert data from TEI NKJP format to LINC format.  Tager can be run on a flattened  (using 'utils/lincOpts/flatten.py' script) LINC data.  The dataset should be divided (using 'utils/lincOpts/break.py' script) into a number of seperate files before the tools learning algorithm can be used.  The whole process of data preparation, model training and tagging is shown in the following section.
+
+
+EXAMPLE
+
+
+AUTHORS
+
+This tool is written and maintained by Jakub Waszczuk, waszczuk.kuba@gmail.com.
