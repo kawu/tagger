@@ -66,24 +66,21 @@ instance Binary Obv where
 
 obvValue :: Obv -> [LincWord] -> Int -> Maybe T.Text
 obvValue (Orth i) sent k =
-    if k + i >= 0 && k + i < length sent then
-        Just $ T.toLower $ orth $ sent !! (k + i)
-    else
-        Nothing
+    if k + i >= 0 && k + i < length sent
+        then Just $ T.toLower $ orth $ sent !! (k + i)
+        else Nothing
 
 obvValue (Prefix h i) sent k = do
     orth <- obvValue (Orth i) sent k
-    if T.length orth >= fromIntegral h then
-        Just $ T.take (fromIntegral h) orth
-    else
-        Nothing
+    if T.length orth >= fromIntegral h
+        then Just $ T.take (fromIntegral h) orth
+        else Nothing
 
 obvValue (Suffix h i) sent k = do
     orth <- obvValue (Orth i) sent k
-    if T.length orth >= fromIntegral h then
-        Just $ T.drop (T.length orth - fromIntegral h) orth
-    else
-        Nothing
+    if T.length orth >= fromIntegral h
+        then Just $ T.drop (T.length orth - fromIntegral h) orth
+        else Nothing
 
 -- Group of observations: alternative of conjunctions of observations
 type ObvGroup = [[Obv]]
