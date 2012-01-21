@@ -165,11 +165,12 @@ doTrain mkDataSet args@TrainMode{..} = do
                     , tau = tau
                     , workersNum = workersNum }
 
-    if not $ null outModel then do
-        putStr $ "\nSaving model in " ++ outModel ++ "..."
-        encodeFile outModel (crf, alphabet, tagset, schema)
-    else
-        return ()
+    if not $ null outModel
+        then do
+            putStr $ "\nSaving model in " ++ outModel ++ "..."
+            encodeFile outModel (crf, alphabet, tagset, schema)
+        else
+            return ()
 
 tagLinc args@TagMode{..} model = do
     (crf, alphabet, tagset, schema) <- model
