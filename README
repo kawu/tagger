@@ -46,10 +46,31 @@ from within the 'docs' directory.
 
 UTILITIES
 
-Utility tools can be found in the 'utils' directory.  The 'utils/tei2linc/tei2linc.py' script can be used to convert data from TEI NKJP format to LINC format.  Tager can be run on a flattened  (using 'utils/lincOpts/flatten.py' script) LINC data.  The dataset should be divided (using 'utils/lincOpts/break.py' script) into a number of seperate files before the tools learning algorithm can be used.  The whole process of data preparation, model training and tagging is shown in the following section.
+Utility tools can be found in the 'utils' directory.  To use them, python version 2.7.* is required (or 2.6.* with manually installed argparse library).  The 'utils/tei2linc/tei2linc.py' script can be used to convert data from TEI NKJP format to LINC format.  Tager can be run on a flattened  (using 'utils/lincOpts/flatten.py' script) LINC data.  The dataset should be divided (using 'utils/lincOpts/break.py' script) into a number of seperate files before the tools learning algorithm can be used.  The whole process of data preparation, model training and tagging is shown in the following section.
 
 
-EXAMPLE
+TRAINING
+
+To prepare LINC data from TEI NKJP corpus, use the following commands:
+
+$ mkdir data
+$ python utils/tei2linc/tei2linc.py NKJP-PodkorpusMilionowy-1.0.tgz -b > data/orig.linc
+
+Converted dataset contains informations, which are unnecessary during the tagging or evalutaion phase.  Use the 'flatten.py' script to get rid of them:
+
+$ python utils/lincOpts/flatten.py data/orig.linc > data/flat.linc
+
+Then you can manually divide it to training 'train.linc' part and evaluation 'eval.linc' part.  Use the 'break.py' script to divide datasets, so they can be used to train a model:
+
+$ python utils/lincOpts/break.py data/train.linc data/train
+$ python utils/lincOpts/break.py data/eval.linc data/eval
+
+Finally, you can train the CRF model using the provided configuration:
+
+$ ./tager train config/tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf
+
+
+DESAMBIGUATION
 
 
 AUTHORS
