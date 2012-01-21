@@ -37,6 +37,8 @@ import CRF.Feature
 import CRF.LogMath
 import CRF.Util (partition)
 
+import Debug.Trace (trace)
+
 type Level = Int
 type Observation = Int
 
@@ -88,8 +90,13 @@ fromList fs = {-# SCC "modelFromList" #-}
         featObvs (OFeature _ o _) = [o]
         featObvs _ = []
     
-        lmax = maximum $ concat $ map featSublabels $ map fst fs
-        omax = maximum $ concat $ map featObvs $ map fst fs
+        -- lmax = maximum $ concat $ map featSublabels $ map fst fs
+        -- omax = maximum $ concat $ map featObvs $ map fst fs
+        (lmax, omax) = foldl onFeature (-1, -1) $ map fst fs
+          where
+            onFeature (lm, om) (OFeature _ o x) = (max lm x, max om o)
+            -- onFeature (lm, om) (TFeature _ x y z) = (maximum [lm, x, y, z], om)
+            onFeature (lm, om) (TFeature _ x y z) = (max lm $ max x $ max y z, om)
 
         trsFeats = [feat | (feat, val) <- fs, isTransFeat feat]
         obsFeats = [feat | (feat, val) <- fs, isObsFeat feat]
@@ -121,7 +128,7 @@ fromList fs = {-# SCC "modelFromList" #-}
             , values = values
             , transitionIxs = transitionIxs
             , observationIxs = observationIxs }
-    in model
+    in  model
 
 modelSize :: Model -> Int
 modelSize crf =

@@ -63,8 +63,8 @@ trainModel trainData evalData args = do
         (zip points scales)
     putStrLn "\n  -- FINISHED --"
 
-    putStrLn . ("\naccuracy train = " ++)
-             . show . (accuracy' $ workersNum args) crf
+    putStr "\naccuracy train = "
+    putStrLn . show . (accuracy' $ workersNum args) crf'
         =<< DS.readDataSet trainData
     return crf'
 
