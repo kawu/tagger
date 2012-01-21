@@ -15,7 +15,9 @@ To compile the program, the Glasgow Haskell Compiler (GHC) is required.  The eas
 
 $ ghc --make -isrc -o tager -outputdir tmp Main
 
-Intermediate files will be put into 'tmp' directory.
+Intermediate files will be put into 'tmp' directory.  To compile with concurrency support:
+
+$ ghc --make -isrc -o tager -outputdir tmp -rtsopts -threaded Main
 
 
 USAGE
@@ -68,6 +70,10 @@ $ python utils/lincOpts/break.py data/eval.linc data/eval
 Finally, you can train the CRF model using the provided configuration:
 
 $ ./tager train config/tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf
+
+Or, if the tool has been compiled with concurrency support and you want to run it on multiple (lets say, four) cores:
+
+$ ./tager train config/tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf -w 4 +RTS -N4
 
 
 DESAMBIGUATION
