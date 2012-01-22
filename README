@@ -13,11 +13,11 @@ COMPILATION
 
 To compile the program, the Glasgow Haskell Compiler (GHC) is required.  The easiest way to get the compiler is to download the latest stable release of Haskell Platform (http://hackage.haskell.org/platform/).  Any other haskell library, which is not distributed with Haskell Platform and is needed to compile the tager, can be downloaded using the cabal tool (which is bundled with the Platform).  Use the following command to compile 'tager' program from within the root directory:
 
-$ ghc --make -isrc -o tager -outputdir tmp Main
+$ ghc -O2 --make -isrc -o tager -outputdir tmp Main
 
 Intermediate files will be put into 'tmp' directory.  To compile with concurrency support:
 
-$ ghc --make -isrc -o tager -outputdir tmp -rtsopts -threaded Main
+$ ghc -O2 --make -isrc -o tager -outputdir tmp -rtsopts -threaded Main
 
 
 USAGE

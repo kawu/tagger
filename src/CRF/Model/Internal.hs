@@ -90,13 +90,8 @@ fromList fs = {-# SCC "modelFromList" #-}
         featObvs (OFeature _ o _) = [o]
         featObvs _ = []
     
-        -- lmax = maximum $ concat $ map featSublabels $ map fst fs
-        -- omax = maximum $ concat $ map featObvs $ map fst fs
-        (lmax, omax) = foldl onFeature (-1, -1) $ map fst fs
-          where
-            onFeature (lm, om) (OFeature _ o x) = (max lm x, max om o)
-            -- onFeature (lm, om) (TFeature _ x y z) = (maximum [lm, x, y, z], om)
-            onFeature (lm, om) (TFeature _ x y z) = (max lm $ max x $ max y z, om)
+        lmax = maximum $ concat $ map featSublabels $ map fst fs
+        omax = maximum $ concat $ map featObvs $ map fst fs
 
         trsFeats = [feat | (feat, val) <- fs, isTransFeat feat]
         obsFeats = [feat | (feat, val) <- fs, isObsFeat feat]
