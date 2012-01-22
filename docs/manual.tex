@@ -1428,47 +1428,46 @@ Każdy znacznik poprzedzony jest:
   ale na wszelki są w ramach parsera plików LINC ponownie
   normalizowane.
 \end{itemize}
-Dla pojedynczego słowa nie należy mieszać powyższych reprezentacji
-(chociaż z technicznego punktu widzenia jest to możliwe).
+Dla zadanego słowa nie należy stosować obu powyższych reprezentacji
+jednocześnie.
 
 Przykładowy fragment pliku w formacie LINC: 
 \begin{verbatim}
 Sent
  "Zatrzasnął"
-  * v.C3sopod
-  - v.C3srpod
-  - v.C3szpod
+  * praet:sg:m1:perf
+  - praet:sg:m2:perf
+  - praet:sg:m3:perf
  "drzwi"
-  * n.App2
-  - n.Gpp2
-  - n.Npp2
-  - n.Vpp2
+  * subst:pl:acc:n
+  - subst:pl:gen:n
+  - subst:pl:nom:n
+  - subst:pl:voc:n
  "od"
-  - n.Gpf
-  * prep.
+  * prep:gen:nwok
+  - subst:pl:gen:f
  "mieszkania"
-  - n.Apn
-  * n.Gsn
-  - n.Npn
-  - n.Vpn
-  - v.NGsnn
+  - ger:sg:gen:n:imperf:aff
+  - subst:pl:acc:n
+  - subst:pl:nom:n
+  - subst:pl:voc:n
+  * subst:sg:gen:n
  "." Nps
-  * interp.
+  * interp
 Sent
  "Bohaterem"
-  * n.Iso
+  * subst:sg:inst:m1
  "powieści"
-  - n.Apf
-  - n.Dsf
-  - n.Gpf
-  * n.Gsf
-  - n.Lsf
-  - n.Npf
-  - n.Vpf
-  - n.Vsf
+  - subst:pl:acc:f
+  - subst:pl:gen:f
+  - subst:pl:nom:f
+  - subst:pl:voc:f
+  - subst:sg:dat:f
+  * subst:sg:gen:f
+  - subst:sg:loc:f
+  - subst:sg:voc:f
  "Paźniewskiego"
-  - m.
-  * n.Gso
+  - ign
 ...
 \end{verbatim}
 
