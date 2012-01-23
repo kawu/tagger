@@ -20,21 +20,48 @@ Intermediate files will be put into 'tmp' directory.  To compile with concurrenc
 $ ghc -O2 --make -isrc -o tager -outputdir tmp -rtsopts -threaded Main
 
 
-USAGE
-
-Run the compiled program with a '--help' argument to see a list of program command line options.
-
-$ ./tager --help
-
-You can find more information about usage in the documentation 'docs' directory.
-
-
 CONFIGURATION
 
 Configuration consists of two files:
 * Tagset configuration,
 * Observations schema.
-Examplary configuration -- simple schema and tagset configuration consistent with NKJP -- can be found in the 'config' directory.  More about configuration can be found in the manual.
+Examplary configuration -- tagset configuration consistent with NKJP and simple schema -- can be found in the 'config' directory.  More about configuration can be found in the manual.
+
+
+DATA PREPARATION
+
+Tager works with data in LINC format, which is described in the manual with more details.  You can convert TEI NKJP corpus to a data set in LINC format using 'utils/tei2linc/tei2linc.py' script.  To use this script (and others in 'utils' directory), you will need python (version 2.7.* is required or 2.6.* with manually installed argparse library).  The data set should be also preprocessed with the 'utils/lincOpts/flatten.py' script, which removes additional, unnecessary from a tager point of view informations.
+
+$ mkdir data
+$ python utils/tei2linc/tei2linc.py NKJP-PodkorpusMilionowy-1.0.tgz -b > data/orig.linc
+$ python utils/lincOpts/flatten.py data/orig.linc > data/flat.linc
+
+The you can manually or automatically divide the data set to training 'train.linc' part and evaluation 'eval.linc' part.  Use the 'break.py' script to divide a data file into a directory of separate files (this step is necessary to train a model).  If you want to perform only cross-validation, you don't have to divide dataset into training and evaluation part, but still the data has to be preprocessed with the 'break.py' script.  
+
+$ python utils/lincOpts/break.py data/train.linc data/train
+$ python utils/lincOpts/break.py data/eval.linc data/eval
+
+
+TRAINING
+
+When you have prepared data with accordance to the previous section, you can train the CRF model.  If you wish, you can modify schema ('config/schema.cfg') to use another set of observation types.  See manual to get more information about observation schema.
+
+$ ./tager train config/nkjp-tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf
+
+If the tool has been compiled with concurrency support and you want to run it on multiple (lets say, four) cores:
+
+$ ./tager train config/nkjp-tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf -w 4 +RTS -N4
+
+
+DESAMBIGUATION
+
+You can disambiguate new data in LINC format using the created CRF model:
+
+$ ./tager tag data/model.crf < data/eval.linc > data/eval-tagged.linc
+
+If you want to get label probabilities instead:
+
+$ ./tager tag -p data/model.crf < data/eval.linc > data/eval-probs.linc
 
 
 DOCUMENTATION
@@ -44,39 +71,6 @@ Manual and algorithm description can be found in the 'docs/manual.pdf' file.  It
 $ pdflatex manual.tex
 
 from within the 'docs' directory.
-
-
-UTILITIES
-
-Utility tools can be found in the 'utils' directory.  To use them, python version 2.7.* is required (or 2.6.* with manually installed argparse library).  The 'utils/tei2linc/tei2linc.py' script can be used to convert data from TEI NKJP format to LINC format.  Tager can be run on a flattened  (using 'utils/lincOpts/flatten.py' script) LINC data.  The dataset should be divided (using 'utils/lincOpts/break.py' script) into a number of seperate files before the tools learning algorithm can be used.  The whole process of data preparation, model training and tagging is shown in the following section.
-
-
-TRAINING
-
-To prepare LINC data from TEI NKJP corpus, use the following commands:
-
-$ mkdir data
-$ python utils/tei2linc/tei2linc.py NKJP-PodkorpusMilionowy-1.0.tgz -b > data/orig.linc
-
-Converted dataset contains informations, which are unnecessary during the tagging or evalutaion phase.  Use the 'flatten.py' script to get rid of them:
-
-$ python utils/lincOpts/flatten.py data/orig.linc > data/flat.linc
-
-Then you can manually divide it to training 'train.linc' part and evaluation 'eval.linc' part.  Use the 'break.py' script to divide datasets, so they can be used to train a model:
-
-$ python utils/lincOpts/break.py data/train.linc data/train
-$ python utils/lincOpts/break.py data/eval.linc data/eval
-
-Finally, you can train the CRF model using the provided configuration:
-
-$ ./tager train config/tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf
-
-Or, if the tool has been compiled with concurrency support and you want to run it on multiple (lets say, four) cores:
-
-$ ./tager train config/tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf -w 4 +RTS -N4
-
-
-DESAMBIGUATION
 
 
 AUTHORS
