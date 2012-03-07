@@ -1,17 +1,17 @@
 Morpho-syntactic tagger for Polish based on Conditional Random Fields.
 
-The tool is still in its developmnet stage.  I'm happy to receive any comments or advices on how to improve it.
+The tool is still in its development stage.  I'm happy to receive any comments or advice on how to improve it.
 
 
 ABOUT
 
 Morpho-syntactic tagger for Polish based on Conditional Random Fields.  For now, it lacks morphological analysis phase and provides only disambiguation functionality. 
-The tager has been developed with Morfeusz tagset in mind (see http://sgjp.pl/morfeusz/), but it can be used with other, similar tagsets.
+The tagger has been developed with Morfeusz tagset in mind (see http://sgjp.pl/morfeusz/), but it can be used with other, similar tagsets.
 
 
 COMPILATION
 
-To compile the program, the Glasgow Haskell Compiler (GHC) is required.  The easiest way to get the compiler is to download the latest stable release of Haskell Platform (http://hackage.haskell.org/platform/).  Any other haskell library, which is not distributed with Haskell Platform and is needed to compile the tager, can be downloaded using the cabal tool (which is bundled with the Platform).  Use the following command to compile 'tager' program from within the root directory:
+To compile the program, the Glasgow Haskell Compiler (GHC) is required.  The easiest way to get the compiler is to download the latest stable release of Haskell Platform (http://hackage.haskell.org/platform/).  Any other Haskell library, which is not distributed with Haskell Platform and is needed to compile the tagger, can be downloaded using the cabal tool (which is bundled with the Platform).  Use the following command to compile 'tager' program from within the root directory:
 
 $ ghc -O2 --make -isrc -o tager -outputdir tmp Main
 
@@ -25,18 +25,18 @@ CONFIGURATION
 Configuration consists of two files:
 * Tagset configuration,
 * Observations schema.
-Examplary configuration -- tagset configuration consistent with NKJP and simple schema -- can be found in the 'config' directory.  More about configuration can be found in the manual.
+Exemplary configuration -- tagset configuration consistent with NKJP and simple schema -- can be found in the 'config' directory.  More about configuration can be found in the manual.
 
 
 DATA PREPARATION
 
-Tager works with data in LINC format, which is described in the manual with more details.  You can convert TEI NKJP corpus to a data set in LINC format using 'utils/tei2linc/tei2linc.py' script.  To use this script (and others in 'utils' directory), you will need python (version 2.7.* is required or 2.6.* with manually installed argparse library).  The data set should be also preprocessed with the 'utils/lincOpts/flatten.py' script, which removes additional, unnecessary from a tager point of view informations.
+Tagger works with data in LINC format, which is described in the manual with more details.  You can convert TEI NKJP corpus to a data set in LINC format using 'utils/tei2linc/tei2linc.py' script.  To use this script (and others in 'utils' directory), you will need python (version 2.7.* is required or 2.6.* with manually installed argparse library).  The data set should also be preprocessed with the 'utils/lincOpts/flatten.py' script, which removes additional, unnecessary from the tagger's point of view, information.
 
 $ mkdir data
 $ python utils/tei2linc/tei2linc.py NKJP-PodkorpusMilionowy-1.0.tgz -b > data/orig.linc
 $ python utils/lincOpts/flatten.py data/orig.linc > data/flat.linc
 
-The you can manually or automatically divide the data set to training 'train.linc' part and evaluation 'eval.linc' part.  Use the 'break.py' script to divide a data file into a directory of separate files (this step is necessary to train a model).  If you want to perform only cross-validation, you don't have to divide dataset into training and evaluation part, but still the data has to be preprocessed with the 'break.py' script.  
+Then you can manually or automatically divide the data set into training 'train.linc' part and evaluation 'eval.linc' part.  Use the 'break.py' script to divide a data file into a directory of separate files (this step is necessary to train a model).  If you want to perform cross-validation only, you don't have to divide the dataset into training and evaluation part, but the data still has to be preprocessed with the 'break.py' script.  
 
 $ python utils/lincOpts/break.py data/train.linc data/train
 $ python utils/lincOpts/break.py data/eval.linc data/eval
@@ -44,16 +44,16 @@ $ python utils/lincOpts/break.py data/eval.linc data/eval
 
 TRAINING
 
-When you have prepared data with accordance to the previous section, you can train the CRF model.  If you wish, you can modify schema ('config/schema.cfg') to use another set of observation types.  See manual to get more information about observation schema.
+Once you have prepared data in accordance with the previous section, you can train the CRF model.  If you wish, you can modify schema ('config/schema.cfg') to use another set of observation types.  See the manual to get more information about observation schema.
 
 $ ./tager train config/nkjp-tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf
 
-If the tool has been compiled with concurrency support and you want to run it on multiple (lets say, four) cores:
+If the tool has been compiled with concurrency support and you want to run it on multiple (say four) cores:
 
 $ ./tager train config/nkjp-tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf -w 4 +RTS -N4
 
 
-DESAMBIGUATION
+DISAMBIGUATION
 
 You can disambiguate new data in LINC format using the created CRF model:
 
@@ -66,7 +66,7 @@ $ ./tager tag -p data/model.crf < data/eval.linc > data/eval-probs.linc
 
 DOCUMENTATION
 
-Manual and algorithm description can be found in the 'docs/manual.pdf' file.  It is written in polish.  In can be compiled using the following command:
+Manual and algorithm description can be found in the 'docs/manual.pdf' file.  It is written in Polish.  In can be compiled using the following command:
 
 $ pdflatex manual.tex
 
@@ -75,4 +75,4 @@ from within the 'docs' directory.
 
 AUTHORS
 
-This tool is written and maintained by Jakub Waszczuk, waszczuk.kuba@gmail.com.
+This tool has been written and is maintained by Jakub Waszczuk, waszczuk.kuba@gmail.com.
