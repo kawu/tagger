@@ -18,32 +18,22 @@ import Text.Tagset.DefParser (parseTagset)
 
 sepTagParser tagset = tagParser tagset
 
-tagParser tagset = choice [ tagParserFor tagset rule
-                          | rule <- ruleDefs tagset ]
+tagParser tagset = choice
+    [ ruleParser tagset rule
+    | rule <- ruleDefs tagset ]
 
-tagParserFor tagset rule = do
-    let view = tagView tagset
-
-        optionParser MorphosView = \p ->
-            -- (p >>= return . Just) <|> (char '_' >> return Nothing)
-            (p >>= return . Just) <|> return Nothing
-        optionParser NKJPView = optionMaybe
-
-    -- using 'try', since the parser should not consume
-    -- any input if the rule doesn't match.
+ruleParser tagset rule = do
     xs  <- try $ do
-        pos <- let (attr, val) = head $ rulePred rule
-                in valueParser view attr val
-        if view == MorphosView
-            then char '.' >> return ()
-            else return ()
-        atts <- sequence [ valueParser view attr val
-                         | (attr, val) <- tail $ rulePred rule ]
+        pos <-
+            let (attr, val) = head $ rulePred rule
+            in valueParser attr val
+        atts <- sequence
+            [ valueParser attr val
+            | (attr, val) <- tail $ rulePred rule ]
         return $ pos : atts
-    xs' <- fmap catMaybes
-         $ sequence [ withOptionParser (optionParser view) optional
-                      $ attrParser tagset attr
-                    | (attr, optional) <- attsFor rule ]
+    xs' <- fmap catMaybes $ sequence
+        [ withOptionParser optionMaybe optional (attrParser tagset attr)
+        | (attr, optional) <- attsFor rule ]
     return $ xs ++ xs'
 
 withOptionParser optionParser optional p =
@@ -52,28 +42,21 @@ withOptionParser optionParser optional p =
         else optionParser p
     where justify p = do {x <- p; return $ Just x} 
 
-attrParser tagset attr =
-    choice [ valueParser (tagView tagset) attr val
-           | val <- attrValues tagset attr ]
-           <?> (attr ++ " value")
+attrParser tagset attr = choice
+    [ valueParser attr val
+    | val <- attrValues tagset attr ]
+  <?> (attr ++ " value")
 
 -- Version with separators
-valueParser view attr val = do
+valueParser attr val = do
     try $ string val
-    if view == NKJPView
-        then (char ':' <|> space) >> return ()
-        else return ()
+    (char ':' >> return ()) <|> eof
     return (T.pack attr, T.pack val)
 
-parseTag :: Tagset -> String -> T.Text -> IO Label
+parseTag :: Tagset -> String -> T.Text -> Label
 parseTag tagset src contents =
     case parse (tagParser tagset) src contents of
-        Left e -> fail $ "Error parsing input:\n" ++ show e
-        Right r -> return r
-
--- main = do
---     c <- getContents
---     tagset <- parseTagset "(stdin)" c
---     result <- parseTag tagset "V:H:N:s:mo:P:"
---     print result
-
+        Left e -> error $ "\nerror in tag parsing:\n"
+            ++ show (T.unpack contents)
+            ++ show e ++ "\n"
+        Right r -> r

@@ -11,13 +11,13 @@ The tagger has been developed with Morfeusz tagset in mind (see http://sgjp.pl/m
 
 COMPILATION
 
-To compile the program, the Glasgow Haskell Compiler (GHC) is required.  The easiest way to get the compiler is to download the latest stable release of Haskell Platform (http://hackage.haskell.org/platform/).  Any other Haskell library, which is not distributed with Haskell Platform and is needed to compile the tagger, can be downloaded using the cabal tool (which is bundled with the Platform).  Use the following command to compile 'tager' program from within the root directory:
+To compile the program, the Glasgow Haskell Compiler (GHC) is required.  The easiest way to get the compiler is to download the latest stable release of Haskell Platform (http://hackage.haskell.org/platform/).  Any other Haskell library, which is not distributed with Haskell Platform and is needed to compile the tagger, can be downloaded using the cabal tool (which is bundled with the Platform).  Use the following command to compile 'tagger' program from within the root directory:
 
-$ ghc -O2 --make -isrc -o tager -outputdir tmp Main
+$ ghc -O2 --make -isrc -o tagger -outputdir tmp Main
 
 Intermediate files will be put into 'tmp' directory.  To compile with concurrency support:
 
-$ ghc -O2 --make -isrc -o tager -outputdir tmp -rtsopts -threaded Main
+$ ghc -O2 --make -isrc -o tagger -outputdir tmp -rtsopts -threaded Main
 
 
 CONFIGURATION
@@ -46,22 +46,22 @@ TRAINING
 
 Once you have prepared data in accordance with the previous section, you can train the CRF model.  If you wish, you can modify schema ('config/schema.cfg') to use another set of observation types.  See the manual to get more information about observation schema.
 
-$ ./tager train config/nkjp-tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf
+$ ./tagger train config/nkjp-tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf
 
 If the tool has been compiled with concurrency support and you want to run it on multiple (say four) cores:
 
-$ ./tager train config/nkjp-tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf -w 4 +RTS -N4
+$ ./tagger train config/nkjp-tagset.cfg config/schema.cfg data/train -e data/eval -d -o data/model.crf -w 4 +RTS -N4
 
 
 DISAMBIGUATION
 
 You can disambiguate new data in LINC format using the created CRF model:
 
-$ ./tager tag data/model.crf < data/eval.linc > data/eval-tagged.linc
+$ ./tagger tag data/model.crf < data/eval.linc > data/eval-tagged.linc
 
 If you want to get label probabilities instead:
 
-$ ./tager tag -p data/model.crf < data/eval.linc > data/eval-probs.linc
+$ ./tagger tag -p data/model.crf < data/eval.linc > data/eval-probs.linc
 
 
 DOCUMENTATION
