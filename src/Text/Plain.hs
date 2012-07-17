@@ -84,4 +84,5 @@ parseInterp tagset unk =
     doIt ["None", "ign"] = [Interp "None" x False | x <- unk]
     doIt [form, tag] = [Interp (T.pack form) (mkTag tag) False]
     doIt [form, tag, "disamb"] = [Interp (T.pack form) (mkTag tag) True]
+    doIt xs = error $ "doIt " ++ show xs
     mkTag = parseTag tagset "" . T.pack

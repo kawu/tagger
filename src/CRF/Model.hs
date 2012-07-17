@@ -293,10 +293,8 @@ expectedFeaturesIn :: Model -> Sent Int Int -> [(Feature, Double)]
 expectedFeaturesIn crf sent =
     -- force parallel computation of alpha and beta tables
     zx1 `par` zx2 `pseq` zx1 `pseq` concat
-    ( [ expectedFeaturesOn crf alpha beta sent k
+      [ expectedFeaturesOn crf alpha beta sent k
       | k <- [0 .. sentLen sent - 1] ]
-      -- parallel computation on different positions
-      `using` parList (evalList evalElem) )
     where alpha = forward logSum crf sent
           beta = backward logSum crf sent
           zx1 = zxAlpha maximum sent alpha
