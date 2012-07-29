@@ -10,7 +10,7 @@ module Text.Linc.Lexer
 , float
 ) where
 
-import System (getArgs)
+import System.Environment (getArgs)
 import Text.Parsec
 import Text.Parsec.Text
 import Data.Maybe (catMaybes)

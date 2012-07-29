@@ -3,7 +3,7 @@ module Text.Linc.Parser
 , parseLinc
 ) where 
 
-import System (getArgs)
+import System.Environment (getArgs)
 import Text.Parsec
 import qualified Data.Text as T
 import qualified Data.Text.IO as T

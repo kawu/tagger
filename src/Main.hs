@@ -32,8 +32,7 @@ import CRF.Util (partition)
 import Data.LincInMemory (lincInMemory)
 
 import qualified Text.Data as L
-import qualified Text.Linc.Parser as L
-import qualified Text.Linc.Printer as L
+import qualified Text.Plain as Plain
 
 import qualified Text.Tagset.Data as TS
 import qualified Text.Tagset.TagParser as TS
@@ -52,7 +51,6 @@ data Args =
         , evalPath    :: FilePath
         , tagsetPath  :: FilePath
         , schemaPath  :: FilePath
-        , unknownPath :: FilePath
         , iterNum :: Double
         , batchSize :: Int
         , regVar :: Double
@@ -60,11 +58,11 @@ data Args =
         , tau :: Double
         , workersNum :: Int
         , outModel :: FilePath }
---     |
---     TagMode
---         { dataPath :: Maybe FilePath
---         , inModel :: FilePath
---         , printProbs :: Bool }
+    |
+    TagMode
+        { dataPath :: Maybe FilePath
+        , inModel :: FilePath
+        , printProbs :: Bool }  -- ^ FIXME: it is ignored now 
 --     |
 --     CVMode 
 --         { dataDirPath :: FilePath
@@ -82,8 +80,7 @@ data Args =
 trainMode = TrainMode
     { tagsetPath  = def &= argPos 0 &= typ "TAGSET"
     , schemaPath  = def &= argPos 1 &= typ "SCHEMA"
-    , unknownPath = def &= argPos 2 &= typ "UNKNOWN"
-    , trainPath = def &= argPos 3 &= typ "TRAIN-DIR"
+    , trainPath = def &= argPos 2 &= typ "TRAIN-DIR"
     , evalPath = def &= typDir &= help "Eval data directory"
     , iterNum = 10 &= help "Number of SGD iterations"
     , batchSize = 30 &= help "Batch size"
@@ -104,17 +101,16 @@ trainMode = TrainMode
 --     , scale0 = 1.0 &= help "Initial scale parameter"
 --     , tau = 5.0 &= help "Initial tau parameter"
 --     , workersNum = 1 &= help "Number of gradient-computing workers" }
--- 
--- tagMode = TagMode
---     { inModel = def &= argPos 0 &= typ "MODEL"
---     , dataPath = Nothing
---         &= help "Input file; if not specified, read from stdin"
---     , printProbs = False
---         &= help "Print probabilities of labeles instead of performing disambiguation" }
+
+tagMode = TagMode
+    { inModel = def &= argPos 0 &= typ "MODEL"
+    , dataPath = Nothing
+        &= help "Input file; if not specified, read from stdin"
+    , printProbs = False
+        &= help "Print probabilities of labeles instead of performing disambiguation" }
 
 argModes :: Mode (CmdArgs Args)
--- argModes = cmdArgsMode $ modes [trainMode, cvMode, tagMode]
-argModes = cmdArgsMode $ modes [trainMode]
+argModes = cmdArgsMode $ modes [trainMode, tagMode]
 
 main = do
     args <- cmdArgsRun argModes
@@ -125,16 +121,13 @@ exec args@TrainMode{..} = do
 
     tagset <- TS.parseTagset tagsetPath =<< readFile tagsetPath
     schema <- S.parseSchema tagset schemaPath =<< readFile schemaPath
-    unknown <- map (TS.parseTag tagset "unknown" . T.pack) . lines
-           <$> readFile unknownPath
 
-    (trainPart, alphabet) <- lincInMemory tagset unknown schema
-                                          Nothing trainPath
+    (trainPart, alphabet) <- lincInMemory tagset schema Nothing trainPath
 
     evalPart <- if null evalPath
         then return Nothing
         else Just . fst
-         <$> lincInMemory tagset unknown schema (Just alphabet) evalPath
+         <$> lincInMemory tagset schema (Just alphabet) evalPath
 
     crf <- C.trainModel trainPart evalPart
         C.TrainArgs { batchSize = batchSize
@@ -148,6 +141,7 @@ exec args@TrainMode{..} = do
         then do
             putStr $ "\nSaving model in " ++ outModel ++ "..."
             encodeFile outModel (crf, alphabet, tagset, schema)
+            putStrLn ""
         else
             return ()
 
@@ -165,41 +159,25 @@ exec args@TrainMode{..} = do
 --     
 --     result <- return $ (sum stats) / (fromIntegral $ length stats)
 --     result `seq` putStrLn $ ("\naverage accuracy: " ++) $ show $ result
--- 
--- exec args@TagMode{..} = do
---     -- putStr $ "Loading model from " ++ inModel ++ "..."
---     model <- return $ decodeFile inModel
---     --putStr "\n"
---     tagLinc args model
--- 
--- tagLinc args@TagMode{..} model = do
---     (crf, alphabet, tagset, schema) <- model
--- 
---     linc <- L.parseLinc tagset =<<
---         case dataFilePath of
---             Nothing -> T.getContents
---             Just path -> T.readFile path
--- 
---     tagged <- return
---         ( map (tagSent schema crf alphabet) linc
---           `using` parBuffer 50 (evalList L.evalLincWord) )
--- 
---     mapM_ (L.printSent tagset printProbs) tagged
--- 
--- tagSent :: [S.LayerCompiled] -> C.Model -> C.Alphabet
---             -> [L.LincWord] -> [L.LincWord]
--- tagSent layers crf alphabet sent =
---     let sent' = C.encodeSent alphabet $ S.schematizeSent layers sent
---         sentProbs = C.tagProbs crf sent'
---         applyProbs (word, probs) =
---             L.LincWord { L.orth=orth, L.nps=nps
---                        , L.interps=interps
---                        , L.probs=probs }
---             where orth = L.orth word
---                   nps = L.nps word
---                   interps = L.interps word
---     in map applyProbs $ zip sent sentProbs
--- 
+
+exec args@TagMode{..} = do
+    model <- decodeFile inModel
+    let (crf, alphabet, tagset, schema) = model
+    plain <- Plain.parsePlain tagset <$>
+        case dataPath of
+            Nothing -> LT.getContents
+            Just path -> LT.readFile path
+    let tagged = map (tagSent schema crf alphabet) plain
+    LT.putStr $ Plain.showPlain tagset tagged
+
+tagSent :: [S.LayerCompiled] -> C.Model -> C.Alphabet
+        -> Plain.Sentence -> Plain.Sentence
+tagSent layers crf alphabet plain =
+    let linc = Plain.mkLincSent plain
+        sent = C.encodeSent alphabet $ S.schematizeSent layers linc
+        sentProbs = C.tagProbs crf sent
+    in map (uncurry Plain.applyProbs1) (zip sentProbs plain)
+
 -- trainOn :: Args -> Int -> [[FilePath]] -> TS.Tagset -> [S.LayerCompiled] -> IO Double
 -- trainOn args@CVMode{..} k parts tagset schema =
 --     let evalPaths = parts !! k
