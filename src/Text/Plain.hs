@@ -15,7 +15,7 @@ module Text.Plain
 , mkLincSent
 , mkLincWord
 
-, applyProbs1
+, applyChoice
 ) where
 
 import Data.Monoid (Monoid, mempty, mappend, mconcat)
@@ -43,12 +43,10 @@ data Interp = Interp
     , dismb :: Bool }
     deriving (Eq, Ord, Show)
 
-applyProbs1 :: [Double] -> Word -> Word
-applyProbs1 prs word = word { forms =
-    [ x { dismb = i == k }
-    | (i, x) <- zip [0..] (forms word) ] }
-  where
-    k = fst $ maximumBy (comparing snd) (zip [0..] prs)
+applyChoice :: Word -> Label -> Word
+applyChoice word label = word { forms =
+    [ form { dismb = label == tag form }
+    | form <- forms word ] }
 
 mkLincSent :: Sentence -> LincSent
 mkLincSent = map mkLincWord
@@ -56,13 +54,16 @@ mkLincSent = map mkLincWord
 mkLincWord :: Word -> LincWord
 mkLincWord Word{..} =
   LincWord (L.toStrict orth) (space == "none")
-    [tag x | x <- forms]
-    [prob (dismb x) | x <- forms]
+    (map fst choice)
+    (map snd choice)
   where
-    -- | FIXME: ensure, that sum of probabilities == 1 (in
-    -- practice, 1 or 0).
-    prob False = 0
-    prob True  = 1
+    choice = (norm.nub) [(tag x, weight $ dismb x) | x <- forms]
+    weight True  = 1 :: Double
+    weight False = 0
+    nub = M.toList . M.fromListWith (+)
+    norm xs =
+        let z = sum (map snd xs)
+        in  [(t, w / z) | (t, w) <- xs]
 
 parsePlain :: Tagset -> L.Text -> [Sentence]
 parsePlain tagset = map (parseSent tagset ). init . L.splitOn "\n\n"
@@ -80,14 +81,14 @@ parseWord tagset xs =
     Word orth space forms
   where
     (orth, space) = parseHeader (head xs)
-    forms = nub $ concatMap (parseInterp tagset) (tail xs)
-    nub = joinDisamb . M.toList . M.fromListWith max . cutDisamb
-    joinDisamb xs =
-        [ Interp form tag dismb
-        | ((form, tag), dismb) <- xs ]
-    cutDisamb xs =
-        [ ((form, tag), dismb)
-        | Interp form tag dismb <- xs ] 
+    forms = concatMap (parseInterp tagset) (tail xs)
+--     nub = joinDisamb . M.toList . M.fromListWith max . cutDisamb
+--     joinDisamb xs =
+--         [ Interp form tag dismb
+--         | ((form, tag), dismb) <- xs ]
+--     cutDisamb xs =
+--         [ ((form, tag), dismb)
+--         | Interp form tag dismb <- xs ] 
 
 parseHeader :: L.Text -> (L.Text, L.Text)
 parseHeader xs =

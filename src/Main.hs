@@ -6,7 +6,8 @@ import System.Console.CmdArgs
 import System.IO (hSetBuffering, stdout, stderr, BufferMode (NoBuffering))
 import System.Directory (getDirectoryContents)
 import System.Random (randoms, mkStdGen)
-import Data.List (isSuffixOf)
+import Data.List (isSuffixOf, maximumBy)
+import Data.Ord (comparing)
 import Control.Applicative ((<$>))
 import Control.Monad (forM_, forM)
 import Control.Monad.Lazy (mapM', forM')
@@ -175,8 +176,15 @@ tagSent :: [S.LayerCompiled] -> C.Model -> C.Alphabet
 tagSent layers crf alphabet plain =
     let linc = Plain.mkLincSent plain
         sent = C.encodeSent alphabet $ S.schematizeSent layers linc
-        sentProbs = C.tagProbs crf sent
-    in map (uncurry Plain.applyProbs1) (zip sentProbs plain)
+
+        tags = map L.interps linc
+        probs = C.tagProbs crf sent
+        choices :: [TS.Label]
+        choices =
+            [ (fst . maximumBy (comparing snd)) (zip wordTags wordProbs)
+            | (wordTags, wordProbs) <- zip tags probs ]
+
+    in	map (uncurry Plain.applyChoice) (zip plain choices)
 
 -- trainOn :: Args -> Int -> [[FilePath]] -> TS.Tagset -> [S.LayerCompiled] -> IO Double
 -- trainOn args@CVMode{..} k parts tagset schema =
