@@ -1,6 +1,7 @@
-{-# LANGUAGE DeriveDataTypeable
-           , ScopedTypeVariables
-           , RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import System.Console.CmdArgs
 import System.IO (hSetBuffering, stdout, stderr, BufferMode (NoBuffering))
@@ -12,14 +13,12 @@ import Control.Applicative ((<$>))
 import Control.Monad (forM_, forM)
 import Control.Monad.Lazy (mapM', forM')
 import Data.Binary (encodeFile, decodeFile)
-
-import Control.Parallel.Strategies ( using, parList, parBuffer, evalList
-                                   , evalTuple2, rseq, parMap )
+import qualified Data.Vector as V
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Data.Text.Lazy as LT
-import qualified Data.Text.Lazy.IO as LT
+import qualified Data.Text.Lazy as L
+import qualified Data.Text.Lazy.IO as L
 
 import qualified CRF.Base as C
 import qualified CRF.Model as C
@@ -28,30 +27,33 @@ import qualified CRF.Feature as C
 import qualified CRF.Alphabet as C
 import CRF.Util (partition)
 
--- import qualified CRF.Data.DataSet as DS
--- import qualified Data.LincPathDS as DS
-import Data.LincInMemory (lincInMemory)
-
-import qualified Text.Data as L
-import qualified Text.Plain as Plain
-
-import qualified Text.Tagset.Data as TS
-import qualified Text.Tagset.TagParser as TS
-import qualified Text.Tagset.DefParser as TS
+import qualified Data.Schema as Ox
+import qualified Data.Feature as Ox
 
 import qualified Schema as S
 
--- readDataSetPaths :: FilePath -> IO [FilePath]
--- readDataSetPaths dirName = do
---     files <- getDirectoryContents dirName
---     return $ map ((dirName ++ "/") ++) $ filter (isSuffixOf ".linc") files
+import qualified Data.Morphosyntax as M
+import Text.Morphosyntax.Tagset (parseTagset)
+import Text.Morphosyntax.Plain (parsePlain, showPlain)
+
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+schema :: S.Schema
+schema sent = \k ->
+    [ Ox.orth sent  k ]
+--     [ Ox.orth sent (k-1)
+--     , Ox.orth sent  k
+--     , Ox.orth sent (k+1) ]
+
+tiers :: [S.Tier]
+tiers = S.mkTiers True $ map (S.mkTierDesc "pos")
+    [["pos", "cas", "per"]]
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 data Args =
     TrainMode
         { trainPath   :: FilePath
         , evalPath    :: FilePath
         , tagsetPath  :: FilePath
-        , schemaPath  :: FilePath
         , iterNum :: Double
         , batchSize :: Int
         , regVar :: Double
@@ -64,24 +66,11 @@ data Args =
         { dataPath :: Maybe FilePath
         , inModel :: FilePath
         , printProbs :: Bool }  -- ^ FIXME: it is ignored now 
---     |
---     CVMode 
---         { dataDirPath :: FilePath
---         , tagsetPath :: FilePath
---         , schemaPath :: FilePath
---         , kCrossVal :: Int
---         , iterNum :: Double
---         , batchSize :: Int
---         , regVar :: Double
---         , scale0 :: Double
---         , tau :: Double
---         , workersNum :: Int }
     deriving (Data, Typeable, Show)
 
 trainMode = TrainMode
     { tagsetPath  = def &= argPos 0 &= typ "TAGSET"
-    , schemaPath  = def &= argPos 1 &= typ "SCHEMA"
-    , trainPath = def &= argPos 2 &= typ "TRAIN-DIR"
+    , trainPath = def &= argPos 1 &= typ "TRAIN-DIR"
     , evalPath = def &= typDir &= help "Eval data directory"
     , iterNum = 10 &= help "Number of SGD iterations"
     , batchSize = 30 &= help "Batch size"
@@ -91,25 +80,14 @@ trainMode = TrainMode
     , workersNum = 1 &= help "Number of gradient-computing workers"
     , outModel = def &= typFile &= help "Output model file" }
 
--- cvMode = CVMode
---     { tagsetPath = def &= argPos 0 &= typ "TAGSET"
---     , schemaPath = def &= argPos 1 &= typ "SCHEMA"
---     , dataDirPath = def &= argPos 2 &= typ "DATA-DIR"
---     , kCrossVal = 10 &= help "K-cross evaluation"
---     , iterNum = 10 &= help "Number of SGD iterations"
---     , batchSize = 30 &= help "Batch size"
---     , regVar = 10.0 &= help "Regularization variance"
---     , scale0 = 1.0 &= help "Initial scale parameter"
---     , tau = 5.0 &= help "Initial tau parameter"
---     , workersNum = 1 &= help "Number of gradient-computing workers" }
-
 tagMode = TagMode
     { inModel = def &= argPos 0 &= typ "MODEL"
     , dataPath = Nothing
         &= help "Input file; if not specified, read from stdin"
     , printProbs = False
-        &= help "Print probabilities of labeles instead of performing disambiguation" }
-
+        &= help ("Print probabilities of labeles instead of" ++
+                 " performing disambiguation") }
+ 
 argModes :: Mode (CmdArgs Args)
 argModes = cmdArgsMode $ modes [trainMode, tagMode]
 
@@ -120,17 +98,20 @@ main = do
 exec args@TrainMode{..} = do
     hSetBuffering stdout NoBuffering
 
-    tagset <- TS.parseTagset tagsetPath =<< readFile tagsetPath
-    schema <- S.parseSchema tagset schemaPath =<< readFile schemaPath
+    tagset <- parseTagset tagsetPath <$> readFile tagsetPath
 
-    (trainPart, alphabet) <- lincInMemory tagset schema Nothing trainPath
+    let readData path = parsePlain tagset <$> L.readFile path
+    let schematize = S.schematize tiers schema
+    let schemaTrain = map schematize <$> readData trainPath
 
-    evalPart <- if null evalPath
+    codec <- codecFrom tagset tiers schema trainPath
+    trainData <- V.fromList <$> map (C.encodeSent codec) <$> schemaTrain
+    evalData <- if null evalPath
         then return Nothing
-        else Just . fst
-         <$> lincInMemory tagset schema (Just alphabet) evalPath
+        else Just . V.fromList <$> map (C.encodeSent codec) <$>
+             map schematize <$> readData evalPath
 
-    crf <- C.trainModel trainPart evalPart
+    crf <- C.trainModel trainData evalData
         C.TrainArgs { batchSize = batchSize
                     , regVar = regVar
                     , iterNum = iterNum
@@ -141,67 +122,38 @@ exec args@TrainMode{..} = do
     if not $ null outModel
         then do
             putStr $ "\nSaving model in " ++ outModel ++ "..."
-            encodeFile outModel (crf, alphabet, tagset, schema)
+            encodeFile outModel (crf, codec, tagset)
             putStrLn ""
         else
             return ()
 
-
--- exec args@CVMode{..} = do
---     hSetBuffering stdout NoBuffering
--- 
---     tagset <- TS.parseTagset tagsetPath =<< readFile tagsetPath
---     schema <- S.parseSchema tagset schemaPath =<< readFile schemaPath
--- 
---     dataSetPaths <- readDataSetPaths dataDirPath
---     parts <- return $ partition kCrossVal dataSetPaths
--- 
---     stats <- mapM' (\i -> trainOn args i parts tagset schema) [0 .. kCrossVal - 1]
---     
---     result <- return $ (sum stats) / (fromIntegral $ length stats)
---     result `seq` putStrLn $ ("\naverage accuracy: " ++) $ show $ result
-
 exec args@TagMode{..} = do
     model <- decodeFile inModel
-    let (crf, alphabet, tagset, schema) = model
-    plain <- Plain.parsePlain tagset <$>
+    let (crf, codec, tagset) = model
+    plain <- parsePlain tagset <$>
         case dataPath of
-            Nothing -> LT.getContents
-            Just path -> LT.readFile path
-    let tagged = map (tagSent schema crf alphabet) plain
-    LT.putStr $ Plain.showPlain tagset tagged
+            Nothing -> L.getContents
+            Just path -> L.readFile path
+    let doTag sent = tagSent crf codec tiers (map fst sent)
+    L.putStr $ showPlain tagset $ map doTag plain
 
-tagSent :: [S.LayerCompiled] -> C.Model -> C.Alphabet
-        -> Plain.Sentence -> Plain.Sentence
-tagSent layers crf alphabet plain =
-    let linc = Plain.mkLincSent plain
-        sent = C.encodeSent alphabet $ S.schematizeSent layers linc
+codecFrom :: M.Tagset -> [S.Tier] -> S.Schema -> FilePath -> IO C.Alphabet
+codecFrom tagset tiers schema path = do
+    plain <- parsePlain tagset <$> L.readFile path 
+    let words = concatMap (C.words . S.schematize tiers schema) plain
+    let codec = C.fromWords words (length tiers)
+    return $ codec `seq` codec
 
-        tags = map L.interps linc
-        probs = C.tagProbs crf sent
-        choices :: [TS.Label]
-        choices =
-            [ (fst . maximumBy (comparing snd)) (zip wordTags wordProbs)
-            | (wordTags, wordProbs) <- zip tags probs ]
-
-    in	map (uncurry Plain.applyChoice) (zip plain choices)
-
--- trainOn :: Args -> Int -> [[FilePath]] -> TS.Tagset -> [S.LayerCompiled] -> IO Double
--- trainOn args@CVMode{..} k parts tagset schema =
---     let evalPaths = parts !! k
---         trainPaths = concat [part | (i, part) <- zip [0..] parts, i /= k]
---     in do
---         putStrLn $ "\n  -- PART " ++ (show k) ++ " --\n"
---         (trainPart, alphabet) <-
---             DS.lincInMemory tagset schema Nothing trainPaths
---         (evalPart, _) <-
---             DS.lincInMemory tagset schema (Just alphabet) evalPaths 
---         crf <- C.trainModel trainPart (Just evalPart)
---             C.TrainArgs { batchSize = batchSize
---                         , regVar = regVar
---                         , iterNum = iterNum
---                         , scale0 = scale0
---                         , tau = tau
---                         , workersNum = workersNum }
---         return . C.accuracy' workersNum crf
---             =<< DS.readDataSet evalPart
+tagSent :: C.Model -> C.Alphabet -> [S.Tier] -> M.Sent -> M.SentMlt
+tagSent crf codec tiers sent =
+    [ ( word, addProbs
+        [ interp
+        | interp <- M.interps word
+        , S.selectAll tiers (M.tag interp) == label ] )
+    | (word, label) <- zip sent choices ]
+  where
+    encoded = C.encodeSent codec (S.schematize' tiers schema sent)
+    choices = map (C.decodeL codec) (C.tag' crf encoded)
+    addProbs xs =
+        let pr = 1 / fromIntegral (length xs)
+        in  [(x, pr) | x <- xs]

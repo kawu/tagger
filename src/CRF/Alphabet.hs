@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module CRF.Alphabet
 ( Alphabet
@@ -6,14 +7,18 @@ module CRF.Alphabet
 -- , readAlphabet
 , fromWords
 , encodeSent
+, encodeO
+, encodeL
+, decodeL
 ) where 
 
 import System.Environment (getArgs)
+import Control.Applicative ((<$>), (<*>))
 import Control.Exception (throw)
-import qualified Data.Map as Map
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import qualified Data.Text.Encoding as T
+import qualified Data.Map as M
+import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy.IO as T
+import qualified Data.Text.Lazy.Encoding as T
 import Data.Maybe (catMaybes)
 import Data.List (foldl', groupBy, sortBy)
 import Data.Function (on)
@@ -31,83 +36,87 @@ instance Binary T.Text where
     put = put . T.encodeUtf8
     get = return . T.decodeUtf8 =<< get
 
-type Alphabet =
-    ( Map.Map T.Text Int        -- observation map
-    , [Map.Map T.Text Int] )    -- tagset map for each layer
+data Alphabet = Alphabet
+    { obMap  :: M.Map T.Text Int          -- observation map
+    , lbMaps :: [ ( M.Map T.Text Int      -- label map and reversed map
+                  , M.Map Int T.Text ) ] }  --   for each layer
+    deriving (Show)
 
--- showMap :: (Show k, Show a, Ord a) => Map.Map k a -> String
--- showMap = unlines . map (show . swap) . sortBy (compare `on` snd) . Map.assocs
---     where swap (a, b) = (b, a)
--- 
--- readMap :: (Read k, Read a, Ord k) => String -> Map.Map k a
--- readMap = Map.fromList . map read' . lines where
---     read' s =
---         let (val, key) = read s
---         in key `seq` val `seq` (key, val)
--- 
--- showAlphabet :: Alphabet -> String
--- showAlphabet (obvMap, tagMaps) =
---     "#OBSERVATIONS:\n" ++
---     showMap obvMap ++
---     (concat $ map (("#LAYER:\n" ++) . showMap) tagMaps)
--- 
--- readAlphabet :: String -> Alphabet
--- readAlphabet = makeAlphabet . map readMap . commentSplit where
---     commentSplit =
---         let splitAt = groupBy (\_ line -> line /= "#OBSERVATIONS:"
---                                        && line /= "#LAYER:")
---         in map (unlines . tail) . splitAt . lines
---     makeAlphabet (obvMap:tagMaps) =
---         obvMap `seq` tagMaps `seqList` (obvMap, tagMaps)
+instance Binary Alphabet where
+    put codec = do
+        put $ obMap codec
+        put $ lbMaps codec
+    get = Alphabet <$> get <*> get
 
-updateMap :: (Ord a) => Map.Map a Int -> a -> Map.Map a Int
-updateMap mp x = case Map.lookup x mp of
+updateMap :: Ord a => M.Map a Int -> a -> M.Map a Int
+updateMap mp x =
+  case M.lookup x mp of
     Just k -> mp
-    Nothing -> Map.insert x n mp
-    where !n = Map.size mp
+    Nothing -> M.insert x n mp
+  where
+    !n = M.size mp
 
-encodeWith :: (Ord a) => a -> Map.Map a Int -> Int
-encodeWith x mp = case Map.lookup x mp of
+encodeWith :: (Ord a) => a -> M.Map a Int -> Int
+encodeWith x mp = case M.lookup x mp of
     Just k -> k
     Nothing -> B.unknown
 
-updateObv :: Alphabet -> T.Text -> Alphabet
-updateObv (oa, la) x = x `seq` oa' `seq` (oa', la)
-    where oa' = updateMap oa x
+updateO :: Alphabet -> T.Text -> Alphabet
+updateO codec x =
+    let obMap' = updateMap (obMap codec) x
+    in  obMap' `seq` codec { obMap = obMap' }
 
-encodeObv :: Alphabet -> T.Text -> Int
-encodeObv (oa, _) x = x `encodeWith` oa
+encodeO :: Alphabet -> T.Text -> Int
+encodeO codec x = x `encodeWith` obMap codec
 
-updateLabel :: Alphabet -> [T.Text] -> Alphabet
-updateLabel (oa, ls) xs = (oa, ls')
-    where !ls' = forceList [updateMap la x | (la, x) <- zip ls xs]
+updateLE :: (M.Map T.Text Int, M.Map Int T.Text) -> T.Text
+         -> (M.Map T.Text Int, M.Map Int T.Text)
+updateLE (lbMap, lbMapR) x =
+    let lbMap' = updateMap lbMap x
+        lbMapR' = M.insert (lbMap' M.! x) x lbMapR
+    in  lbMap' `seq` lbMapR' `seq` (lbMap', lbMapR')
 
-encodeLabel :: Alphabet -> [T.Text] -> [Int]
-encodeLabel (_, ls) xs =
-    forceList [x `encodeWith` la | (la, x) <- zip ls xs]
+updateL :: Alphabet -> [T.Text] -> Alphabet
+updateL codec xs =
+    let ls = forceList [updateLE la x | (la, x) <- zip (lbMaps codec) xs]
+    in  ls `seq` codec { lbMaps = ls }
+
+encodeL :: Alphabet -> [T.Text] -> [Int]
+encodeL codec xs = forceList
+    [x `encodeWith` la | (la, x) <- zip (map fst $ lbMaps codec) xs]
+
+decodeL :: Alphabet -> [Int] -> [T.Text]
+decodeL codec xs = (forceList . catMaybes)
+    [x `M.lookup` la | (la, x) <- zip (map snd $ lbMaps codec) xs]
 
 update :: Alphabet -> B.Word T.Text T.Text -> Alphabet
-update alphabet0 word = alphabet2
-    where
-        alphabet1 = foldl' updateObv alphabet0 $ concat $ B.obvs word
-        alphabet2 = foldl' updateLabel alphabet1 $ V.toList $ B.labels word
+update alphabet0 word =
+    alphabet2
+  where
+    alphabet1 = foldl' updateO alphabet0 $ concat $ B.obvs word
+    alphabet2 = foldl' updateL alphabet1 $ V.toList $ B.labels word
 
 encode :: Alphabet -> B.Word T.Text T.Text -> B.Word Int Int
-encode alphabet word = B.newWord obvs' labels'
-    where
-        obvs' = map encodeObvs $ B.obvs word
-        encodeObvs = map (encodeObv alphabet)
-        labels' = map encodeLabelProb $ B.labelProbs word
-        encodeLabelProb (label, prob) =
-            ( V.fromList $ encodeLabel alphabet $ V.toList label
-            , prob )
+encode alphabet word =
+    B.mkWord obvs' labels'
+  where
+    obvs' = map encodeOs $ B.obvs word
+    encodeOs = map (encodeO alphabet)
+    labels' = map encodeLabelProb $ B.labelProbs word
+    encodeLabelProb (label, prob) =
+        ( V.fromList $ encodeL alphabet $ V.toList label
+        , prob )
         
 fromWords :: [B.Word T.Text T.Text] -> Int -> Alphabet
-fromWords ws ln = foldl' update (Map.empty, replicate ln withDummy) ws
-    where withDummy = Map.singleton (T.pack ":") B.dummy
+fromWords ws ln =
+    foldl' update init ws
+  where
+    init = Alphabet M.empty (replicate ln (withDummy, withDummyR))
+    withDummy = M.singleton  ":" B.dummy
+    withDummyR = M.singleton B.dummy ":"
 
 encodeSent :: Alphabet -> B.Sent T.Text T.Text -> B.Sent Int Int
-encodeSent at s = B.newSent (B.layersNum s)
+encodeSent at s = B.mkSent (B.layersNum s)
                 $ map (encode at) (B.words s)
 -- encodeSent at s = words `pseq` B.newSent (B.layersNum s) words
 --     where words = parMap rseq (encode at) (B.words s)

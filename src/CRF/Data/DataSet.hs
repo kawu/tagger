@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module CRF.Data.DataSet
 ( DataSet
 , dataSize
@@ -6,11 +8,10 @@ module CRF.Data.DataSet
 , readDataElems
 ) where 
 
--- import Control.Parallel.Strategies (parBuffer, withStrategy, rseq)
+import qualified Data.Vector as V
 
 import CRF.Control.Monad.Lazy (sequence')
 import qualified CRF.Base as B
-import qualified CRF.Data.Vect as V
 
 class DataSet s where
     dataSize :: s -> Int
@@ -26,3 +27,7 @@ class DataSet s where
             --        Jestesmy w IO, wiec i tak operacje zostana
             --        wykonane sekwencyjnie !
     readDataSet s = readDataElems s [0 .. dataSize s - 1]
+
+instance DataSet (V.Vector (B.Sent Int Int)) where
+    dataSize = V.length
+    readDataElem v k = return (v V.! k)

@@ -1,8 +1,8 @@
 module CRF.Base
 ( Word
-, newWord
+, mkWord
 , Sent
-, newSent
+, mkSent
 , sentLen
 , words
 , word
@@ -36,8 +36,8 @@ data Word o t = Word [[o]]
                      (A.Array Int Double)
     deriving (Show)
 
-newWord :: [[o]] -> [([t], Double)] -> Word o t
-newWord os ts =
+mkWord :: [[o]] -> [([t], Double)] -> Word o t
+mkWord os ts =
     os `seqList2` labels' `seq` probs' `seq` Word os labels' probs'
     where (labels, probs) = unzip ts
     	  labels' = labels `seqList2` V.fromList labels
@@ -64,8 +64,8 @@ labelProbs word = zip (V.toList $ labels word) (V.toList $ probs word)
 data Sent o t = Sent Int (A.Array Int (Word o t))
     deriving Show
 
-newSent :: Int -> [Word o t] -> Sent o t
-newSent ln ws =
+mkSent :: Int -> [Word o t] -> Sent o t
+mkSent ln ws =
     -- ln `seq` ws `seqList`
     Sent ln $ V.fromList ws
 
