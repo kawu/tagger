@@ -22,11 +22,11 @@ import qualified Data.Vector as V
 import Data.Maybe (catMaybes)
 
 import qualified CRF.Base as C
-
 import qualified Data.Morphosyntax as M
 import qualified Data.Morphosyntax.Tagset as M
-
 import qualified Data.Schema as Ox
+
+import qualified Token as T
 
 -- | Tier section. TODO: Move to separate module?
 data TierDesc = TierDesc
@@ -81,23 +81,27 @@ selectAll :: [Tier] -> M.Tag -> [L.Text]
 selectAll tiers tag = map (flip select tag) tiers
 
 -- | Schema section.
-type Schema = Ox.Schema M.Word
+type Schema = Ox.Schema (T.Tok M.Word)
 
 type SchemedWord = C.Word L.Text L.Text
 type SchemedSent = C.Sent L.Text L.Text
 
--- | TODO: Take tagset on account?
+-- | On this point the input sentence is not only schematized,
+-- but also all interpunction characters are removed.
+-- TODO: Take tagset on account?
 schematize :: [Tier] -> Schema -> M.SentMlt -> SchemedSent
--- schematize sent = map (Word.rmDups . fmap M.tag)
-schematize tiers schema sent = C.mkSent (length tiers)
+schematize tiers schema cano = C.mkSent (length tiers)
     [ C.mkWord
         [ obs | _ <- tiers ]
         [ (map (flip select x) tiers, pr)
         | (x, pr) <- lbs ]
-    | (obs, (word, choice)) <- zip schemed sent
-    , let lbs = mergeTags (M.interps word) choice ]
+    | (obs, tok) <- zip schemed sent
+    , let lbs = mergeTags (interps tok) (choice tok) ]
   where
-    schemed = Ox.runSchema schema $ V.fromList $ map fst sent
+    interps = M.interps . fst . T.body
+    choice  = snd . T.body
+    sent    = T.fromCano cano
+    schemed = Ox.runSchema schema $ V.fromList $ map (fmap fst) sent
     mergeTags xs choice =
         let choiceMap = M.fromListWith (+)
                 [ (M.tag x, pr)

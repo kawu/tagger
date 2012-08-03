@@ -241,33 +241,33 @@ accuracy' k crf dataset =
 -- cll :: Model -> [Sentence] -> Double
 -- cll crf dataset = sum [prob crf sent | sent <- dataset]
 
-prob3 :: Model -> ProbArray -> ProbArray -> Sent Int Int
-      -> Int -> Int -> Int -> Int -> Double
-prob3 crf alpha beta sent k x y z =
-    alpha (k - 1) y z + beta (k + 1) x y
-    + phi crf (obvs $ word sent k) a b c
-    - zxBeta beta
-    where a = interp sent k       x
-          b = interp sent (k - 1) y
-          c = interp sent (k - 2) z
-
-prob3' crf alpha beta sent k psiMem x y z =
+prob3 crf alpha beta sent k psiMem x y z =
     alpha (k - 1) y z + beta (k + 1) x y + psiMem x
     + onTransition crf a b c - zxBeta beta
     where a = interp sent k       x
           b = interp sent (k - 1) y
           c = interp sent (k - 2) z
 
+-- prob3' :: Model -> ProbArray -> ProbArray -> Sent Int Int
+--        -> Int -> Int -> Int -> Int -> Double
+-- prob3' crf alpha beta sent k x y z =
+--     alpha (k - 1) y z + beta (k + 1) x y
+--     + phi crf (obvs $ word sent k) a b c
+--     - zxBeta beta
+--     where a = interp sent k       x
+--           b = interp sent (k - 1) y
+--           c = interp sent (k - 2) z
+
 prob2 :: Model -> ProbArray -> ProbArray
       -> Sent o t -> Int -> Int -> Int -> Double
 prob2 crf alpha beta sent k x y =
     alpha k x y + beta (k + 1) x y - zxBeta beta
 
-prob2' :: Model -> ProbArray -> ProbArray -> Sent Int Int
-       -> Int -> Int -> Int -> Double
-prob2' crf alpha beta sent k x y = logSum
-    [ prob3 crf alpha beta sent k x y z
-    | z <- labelIxs sent (k - 2) ]
+-- prob2' :: Model -> ProbArray -> ProbArray -> Sent Int Int
+--        -> Int -> Int -> Int -> Double
+-- prob2' crf alpha beta sent k x y = logSum
+--     [ prob3 crf alpha beta sent k x y z
+--     | z <- labelIxs sent (k - 2) ]
 
 prob1 :: Model -> ProbArray -> ProbArray -> Sent Int Int
       -> Int -> Int -> Double
@@ -278,15 +278,17 @@ prob1 crf alpha beta sent k x = logSum
 expectedFeaturesOn :: Model -> ProbArray -> ProbArray -> Sent Int Int
                    -> Int -> [(Feature, Double)]
 expectedFeaturesOn crf alpha beta sent k =
-    fs3 ++ fs1 -- `using` parList evalElem
+    fs3 ++ fs1
     where psiMem = computePsiMem crf sent k
-          pr1 = prob1  crf alpha beta sent k
-          pr3 = prob3' crf alpha beta sent k psiMem
-          fs1 = [ (feature, pr1 a) 
+          pr1 = prob1 crf alpha beta sent k
+          pr3 = prob3 crf alpha beta sent k psiMem
+          fs1 = [ (feature, pr) 
                 | a <- labelIxs sent k
+                , let pr = pr1 a
                 , feature <- observationFeaturesFor' sent k a ]
-    	  fs3 = [ (feature, pr3 a b c) 
+    	  fs3 = [ (feature, pr) 
                 | (a, b, c) <- labelIxs3 sent k
+                , let pr = pr3 a b c
                 , feature <- transitionFeaturesFor' sent k (a, b, c) ]
 
 expectedFeaturesIn :: Model -> Sent Int Int -> [(Feature, Double)]
@@ -299,4 +301,3 @@ expectedFeaturesIn crf sent =
           beta = backward logSum crf sent
           zx1 = zxAlpha maximum sent alpha
           zx2 = zxBeta beta
-          evalElem = evalTuple2 rseq rseq

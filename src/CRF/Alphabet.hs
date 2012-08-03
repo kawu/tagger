@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module CRF.Alphabet
-( Alphabet
+( Alphabet (..)
 -- , showAlphabet
 -- , readAlphabet
 , fromWords
@@ -32,9 +32,9 @@ import qualified CRF.Data.Vect as  V
 import CRF.Control.Monad.Lazy (sequence')
 import CRF.Control.Eval (seqList, forceList)
 
-instance Binary T.Text where
-    put = put . T.encodeUtf8
-    get = return . T.decodeUtf8 =<< get
+-- instance Binary T.Text where
+--     put = put . T.encodeUtf8
+--     get = return . T.decodeUtf8 =<< get
 
 data Alphabet = Alphabet
     { obMap  :: M.Map T.Text Int          -- observation map

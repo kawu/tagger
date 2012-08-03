@@ -14,6 +14,7 @@ import Control.Monad (forM_, forM)
 import Control.Monad.Lazy (mapM', forM')
 import Data.Binary (encodeFile, decodeFile)
 import qualified Data.Vector as V
+import qualified Data.Map as Map
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -30,6 +31,7 @@ import CRF.Util (partition)
 import qualified Data.Schema as Ox
 import qualified Data.Feature as Ox
 
+import qualified Token as Tok
 import qualified Schema as S
 
 import qualified Data.Morphosyntax as M
@@ -39,10 +41,88 @@ import Text.Morphosyntax.Plain (parsePlain, showPlain)
 -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 schema :: S.Schema
 schema sent = \k ->
-    [ Ox.orth sent  k ]
---     [ Ox.orth sent (k-1)
---     , Ox.orth sent  k
---     , Ox.orth sent (k+1) ]
+    [ lowOrth       `at` (k-1)
+    , lowOrth       `at` k
+    , lowOrth       `at` (k+1)
+    , sepBefore     `at` (k-1)
+    , sepBefore     `at` k
+    , sepAfter      `at` k
+    , Ox.iff ((not . known) `atB` k)
+        [ Ox.prefix 1 $ lowOrth `at` k
+        , Ox.prefix 2 $ lowOrth `at` k
+        , Ox.prefix 3 $ lowOrth `at` k
+        , Ox.suffix 1 $ lowOrth `at` k
+        , Ox.suffix 2 $ lowOrth `at` k
+        , Ox.suffix 3 $ lowOrth `at` k
+        , Ox.join "-" (isBeg k) (packedShape `at` k) ] ]
+  where
+    at  = Ox.at sent
+    atB = Ox.atB sent
+    known = M.known . Tok.body
+    orth  = (:[]) . M.orth . Tok.body
+    lowOrth = map L.toLower . orth
+    shape = Ox.shape . orth
+    packedShape = Ox.pack . shape
+    -- | FIXME: this should take on account spacing info!
+    sepBefore = sepWith Tok.sepB
+    sepAfter  = sepWith Tok.sepA
+    sepWith sep w = case sep w of
+        [] -> []
+        xs -> [L.concat $ map M.orth xs]
+
+    isBeg k     = boolF (k == 0)
+    boolF True  = ["T"]
+    boolF False = ["F"]
+
+-- schema :: S.Schema
+-- schema sent = doIt
+--   where
+--     doIt k
+--         | known k =
+--             [ lowOrth (k-1)
+--             , lowOrth k
+--             , lowOrth (k+1)
+-- 	    , sepBefore (k-1)
+-- 	    , sepBefore k
+-- 	    , sepAfter k ]
+--         | otherwise =
+--             -- | FIXME: You have to be careful with the order here. 
+-- 	    -- Better write some Ox library combinator for if-then-else
+-- 	    -- expression.
+--             [ lowOrth (k-1)
+--             , lowOrth k
+--             , lowOrth (k+1)
+-- 	    , sepBefore (k-1)
+-- 	    , sepBefore k
+-- 	    , sepAfter k
+--             , Ox.prefix 1 $ lowOrth k
+--             , Ox.prefix 2 $ lowOrth k
+--             , Ox.prefix 3 $ lowOrth k
+--             , Ox.suffix 1 $ lowOrth k
+--             , Ox.suffix 2 $ lowOrth k
+--             , Ox.suffix 3 $ lowOrth k
+--             , Ox.join "-" (Ox.isBeg sent k) (packedShape k) ]
+--     known k
+--         | k < 0 || k >= V.length sent = False
+--         | otherwise = (M.known . Tok.body) (sent V.! k)
+--     orth k 
+--         | k < 0 || k >= V.length sent = []
+--         | otherwise = [(M.orth . Tok.body) (sent V.! k)]
+--     -- | FIXME: this should take on account spacing info!
+--     sepBefore k
+--         | k < 0 || k >= V.length sent = []
+--         | otherwise = case Tok.sepB (sent V.! k) of
+--             [] -> []
+--             xs -> [L.concat . map M.orth $ xs]
+--     -- | FIXME: this should take on account spacing info!
+--     sepAfter k
+--         | k < 0 || k >= V.length sent = []
+--         | otherwise = case Tok.sepA (sent V.! k) of
+--             [] -> []
+--             xs -> [L.concat . map M.orth $ xs]
+--     lowOrth = map L.toLower . orth
+--     shape = Ox.shape . orth
+--     packedShape = Ox.pack . shape
 
 tiers :: [S.Tier]
 tiers = S.mkTiers True $ map (S.mkTierDesc "pos")
@@ -105,6 +185,11 @@ exec args@TrainMode{..} = do
     let schemaTrain = map schematize <$> readData trainPath
 
     codec <- codecFrom tagset tiers schema trainPath
+    putStrLn $ "Number of observations: "
+        ++ show (length $ Map.keys $ C.obMap codec)
+    putStrLn $ "Numbers of labels: "
+        ++ show (map (length . Map.keys . fst) (C.lbMaps codec))
+
     trainData <- V.fromList <$> map (C.encodeSent codec) <$> schemaTrain
     evalData <- if null evalPath
         then return Nothing
@@ -146,14 +231,27 @@ codecFrom tagset tiers schema path = do
 
 tagSent :: C.Model -> C.Alphabet -> [S.Tier] -> M.Sent -> M.SentMlt
 tagSent crf codec tiers sent =
-    [ ( word, addProbs
-        [ interp
-        | interp <- M.interps word
-        , S.selectAll tiers (M.tag interp) == label ] )
-    | (word, label) <- zip sent choices ]
+    align sent choices
   where
     encoded = C.encodeSent codec (S.schematize' tiers schema sent)
     choices = map (C.decodeL codec) (C.tag' crf encoded)
+
+    -- | Since interpunction characters are removed during schematization,
+    -- we have to align the original sentence and the list of choices.
+    align xs [] = map punChoice sent
+    align (x:xs) (y:ys)
+        | Tok.isPun x = punChoice x   : align xs (y:ys)
+        | otherwise   = selChoice x y : align xs ys
+
+    punChoice word = (word, addProbs (M.interps word))
+    selChoice word label =
+        (word, choice)
+      where
+        choice = addProbs
+            [ interp
+            | interp <- M.interps word
+            , S.selectAll tiers (M.tag interp) == label ]
+
     addProbs xs =
         let pr = 1 / fromIntegral (length xs)
         in  [(x, pr) | x <- xs]
