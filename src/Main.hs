@@ -238,7 +238,7 @@ tagSent crf codec tiers sent =
 
     -- | Since interpunction characters are removed during schematization,
     -- we have to align the original sentence and the list of choices.
-    align xs [] = map punChoice sent
+    align xs [] = map punChoice xs
     align (x:xs) (y:ys)
         | Tok.isPun x = punChoice x   : align xs (y:ys)
         | otherwise   = selChoice x y : align xs ys
