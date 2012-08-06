@@ -233,19 +233,20 @@ codecFrom tagset tiers schema path = do
 
 tagSent :: C.Model -> C.Alphabet -> [S.Tier] -> M.Sent -> M.SentMlt
 tagSent crf codec tiers sent =
-    align sent choices
+--     align sent choices
+    map (uncurry selChoice) (zip sent choices)
   where
     encoded = C.encodeSent codec (S.schematize' tiers schema sent)
     choices = map (C.decodeL codec) (C.tag' crf encoded)
 
-    -- | Since interpunction characters are removed during schematization,
-    -- we have to align the original sentence and the list of choices.
-    align xs [] = map punChoice xs
-    align (x:xs) (y:ys)
-        | Tok.isPun x = punChoice x   : align xs (y:ys)
-        | otherwise   = selChoice x y : align xs ys
+--     -- | Since interpunction characters are removed during schematization,
+--     -- we have to align the original sentence and the list of choices.
+--     align xs [] = map punChoice xs
+--     align (x:xs) (y:ys)
+--         | Tok.isPun x = punChoice x   : align xs (y:ys)
+--         | otherwise   = selChoice x y : align xs ys
 
-    punChoice word = (word, addProbs (M.interps word))
+--     punChoice word = (word, addProbs (M.interps word))
     selChoice word label =
         (word, choice)
       where
