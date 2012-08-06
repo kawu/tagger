@@ -26,8 +26,6 @@ import qualified Data.Morphosyntax as M
 import qualified Data.Morphosyntax.Tagset as M
 import qualified Data.Schema as Ox
 
-import qualified Token as T
-
 -- | Tier section. TODO: Move to separate module?
 data TierDesc = TierDesc
     { withPos   :: Bool
@@ -81,7 +79,7 @@ selectAll :: [Tier] -> M.Tag -> [L.Text]
 selectAll tiers tag = map (flip select tag) tiers
 
 -- | Schema section.
-type Schema = Ox.Schema (T.Tok M.Word)
+type Schema = Ox.Schema M.Word
 
 type SchemedWord = C.Word L.Text L.Text
 type SchemedSent = C.Sent L.Text L.Text
@@ -90,7 +88,7 @@ type SchemedSent = C.Sent L.Text L.Text
 -- but also all interpunction characters are removed.
 -- TODO: Take tagset on account?
 schematize :: [Tier] -> Schema -> M.SentMlt -> SchemedSent
-schematize tiers schema cano = C.mkSent (length tiers)
+schematize tiers schema sent = C.mkSent (length tiers)
     [ C.mkWord
         [ obs | _ <- tiers ]
         [ (map (flip select x) tiers, pr)
@@ -98,10 +96,9 @@ schematize tiers schema cano = C.mkSent (length tiers)
     | (obs, tok) <- zip schemed sent
     , let lbs = mergeTags (interps tok) (choice tok) ]
   where
-    interps = M.interps . fst . T.body
-    choice  = snd . T.body
-    sent    = T.fromCano cano
-    schemed = Ox.runSchema schema $ V.fromList $ map (fmap fst) sent
+    interps = M.interps . fst
+    choice  = snd
+    schemed = Ox.runSchema schema $ V.fromList $ map fst sent
     mergeTags xs choice =
         let choiceMap = M.fromListWith (+)
                 [ (M.tag x, pr)
@@ -115,3 +112,38 @@ schematize tiers schema cano = C.mkSent (length tiers)
 schematize' :: [Tier] -> Schema -> M.Sent -> SchemedSent
 schematize' tiers schema sent =
     schematize tiers schema [(word, []) | word <- sent]
+
+-- | Version with interpunction characters cut out.
+--
+-- import qualified Token as T
+--
+-- type Schema = Ox.Schema (T.Tok M.Word)
+-- 
+-- type SchemedWord = C.Word L.Text L.Text
+-- type SchemedSent = C.Sent L.Text L.Text
+-- 
+-- -- | On this point the input sentence is not only schematized,
+-- -- but also all interpunction characters are removed.
+-- -- TODO: Take tagset on account?
+-- schematize :: [Tier] -> Schema -> M.SentMlt -> SchemedSent
+-- schematize tiers schema cano = C.mkSent (length tiers)
+--     [ C.mkWord
+--         [ obs | _ <- tiers ]
+--         [ (map (flip select x) tiers, pr)
+--         | (x, pr) <- lbs ]
+--     | (obs, tok) <- zip schemed sent
+--     , let lbs = mergeTags (interps tok) (choice tok) ]
+--   where
+--     interps = M.interps . fst . T.body
+--     choice  = snd . T.body
+--     sent    = T.fromCano cano
+--     schemed = Ox.runSchema schema $ V.fromList $ map (fmap fst) sent
+--     mergeTags xs choice =
+--         let choiceMap = M.fromListWith (+)
+--                 [ (M.tag x, pr)
+--                 | (x, pr) <- choice ]
+--         in  (M.toList . M.fromList)
+--                 [ case x `M.lookup` choiceMap of
+--                     Just v  -> (x, v)
+--                     Nothing -> (x, 0)
+--                 | x <- map M.tag xs ]

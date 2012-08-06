@@ -44,9 +44,9 @@ schema sent = \k ->
     [ lowOrth       `at` (k-1)
     , lowOrth       `at` k
     , lowOrth       `at` (k+1)
-    , sepBefore     `at` (k-1)
-    , sepBefore     `at` k
-    , sepAfter      `at` k
+--     , sepBefore     `at` (k-1)
+--     , sepBefore     `at` k
+--     , sepAfter      `at` k
     , Ox.iff ((not . known) `atB` k)
         [ Ox.prefix 1 $ lowOrth `at` k
         , Ox.prefix 2 $ lowOrth `at` k
@@ -58,17 +58,19 @@ schema sent = \k ->
   where
     at  = Ox.at sent
     atB = Ox.atB sent
-    known = M.known . Tok.body
-    orth  = (:[]) . M.orth . Tok.body
+    -- known = M.known . Tok.body
+    known = M.known
+    -- orth  = (:[]) . M.orth . Tok.body
+    orth  = (:[]) . M.orth
     lowOrth = map L.toLower . orth
     shape = Ox.shape . orth
     packedShape = Ox.pack . shape
-    -- | FIXME: this should take on account spacing info!
-    sepBefore = sepWith Tok.sepB
-    sepAfter  = sepWith Tok.sepA
-    sepWith sep w = case sep w of
-        [] -> []
-        xs -> [L.concat $ map M.orth xs]
+--     -- | FIXME: this should take on account spacing info!
+--     sepBefore = sepWith Tok.sepB
+--     sepAfter  = sepWith Tok.sepA
+--     sepWith sep w = case sep w of
+--         [] -> []
+--         xs -> [L.concat $ map M.orth xs]
 
     isBeg k     = boolF (k == 0)
     boolF True  = ["T"]
