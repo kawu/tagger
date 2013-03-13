@@ -1,3 +1,5 @@
+NOTE: This package is obsolete.  Try http://zil.ipipan.waw.pl/Concraft instead.
+
 Morpho-syntactic tagger for Polish based on Conditional Random Fields.
 
 The tool is still in its development stage.  I'm happy to receive any comments or advice on how to improve it.
